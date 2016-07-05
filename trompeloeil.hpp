@@ -2167,12 +2167,9 @@ namespace trompeloeil
     std::index_sequence<I...>,
     T const& t,
     U const& u)
-    noexcept(noexcept(std::initializer_list<bool>{trompeloeil::param_matches(std::get<I>(t),std::get<I>(u))...}))
+    noexcept(noexcept((::trompeloeil::param_matches(std::get<I>(t), std::get<I>(u)) && ...)))
   {
-    bool all_true = true;
-    ::trompeloeil::ignore(t, u); // Kills unmotivated VS2015 warning in the empty case
-    ::trompeloeil::ignore(std::initializer_list<bool>{all_true = all_true && ::trompeloeil::param_matches(std::get<I>(t), std::get<I>(u))...});
-    return all_true;
+    return (::trompeloeil::param_matches(std::get<I>(t), std::get<I>(u)) && ...);
   }
 
   template <typename ... T, typename ... U>
@@ -2207,8 +2204,7 @@ namespace trompeloeil
                       std::tuple<V...> const& v,
                       std::tuple<P...> const& p)
   {
-    ::trompeloeil::ignore(os, v, p);  // Kills unmotivated VS2015 warning in the empty case
-    ::trompeloeil::ignore(std::initializer_list<int>{(print_mismatch(os, I, std::get<I>(v), std::get<I>(p)),0)...});
+    (print_mismatch(os, I, std::get<I>(v), std::get<I>(p)),...);
   }
 
   template <typename ... V, typename ... P>
@@ -2221,7 +2217,8 @@ namespace trompeloeil
   }
 
   template <typename T>
-  void missed_value(
+  void
+  missed_value(
     std::ostream& os,
     int i,
     T const& t)
@@ -2239,8 +2236,7 @@ namespace trompeloeil
     std::index_sequence<I...>,
     std::tuple<T...> const& t)
   {
-    ::trompeloeil::ignore(os, t);  // Kills unmotivated VS2015 warning in the empty case
-    ::trompeloeil::ignore(std::initializer_list<int>{(missed_value(os, I, std::get<I>(t)),0)...});
+    (missed_value(os, I, std::get<I>(t)),...);
   }
 
   template <typename ... T>
