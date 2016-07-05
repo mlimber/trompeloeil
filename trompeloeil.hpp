@@ -2523,8 +2523,10 @@ namespace trompeloeil
       constexpr bool forbidden = upper_call_limit == 0U;
       static_assert(!forbidden,
                     "SIDE_EFFECT for forbidden call does not make sense");
-      using tag = std::bool_constant<!forbidden>;
-      matcher->add_side_effect(tag{}, &a);
+      if constexpr(!forbidden)
+      {
+        matcher->add_side_effect(&a);
+      }
       return {std::move(matcher)};
     }
 
@@ -2554,8 +2556,10 @@ namespace trompeloeil
                     "RETURN for forbidden call does not make sense");
 
       constexpr bool valid = matching_ret_type && is_first_return && !throws && upper_call_limit > 0ULL;
-      using tag = std::bool_constant<valid>;
-      matcher->set_return(tag{}, &h);
+      if constexpr(valid)
+      {
+        matcher->set_return(&h);
+      }
       return {std::move(matcher)};
     }
 
@@ -2571,13 +2575,15 @@ namespace trompeloeil
                     "THROW and RETURN does not make sense");
 
       constexpr bool valid = !throws && !has_return;
-      using tag = std::bool_constant<valid>;
-      auto handler = [=](auto& p) -> decltype(auto)
+      if constexpr(valid)
       {
-        h(p);
-        return trompeloeil::default_return<signature>(p);
-      };
-      matcher->set_return(tag{}, &handler);
+        auto handler = [=](auto& p) -> decltype(auto)
+        {
+          h(p);
+          return trompeloeil::default_return<signature>(p);
+        };
+        matcher->set_return(&handler);
+      }
       return {std::move(matcher)};
     }
     template <unsigned long long L,
@@ -2892,17 +2898,11 @@ namespace trompeloeil
     template <typename S>
     void
     add_side_effect(
-      std::true_type,
       S* s)
     {
       auto effect = new side_effect<Sig, S>(std::move(*s));
       actions.push_back(effect);
     }
-
-    static                                            // Never called. Used to
-    inline                                            // limit errmsg with
-    void                                              // SIDE_EFFECT on
-    add_side_effect(std::false_type, ...) noexcept;   // forbidden call
 
     template <typename ... T>
     void
@@ -2919,18 +2919,12 @@ namespace trompeloeil
     inline
     void
     set_return(
-      std::true_type,
       T* h)
     {
       using basic_t = typename std::remove_reference<T>::type;
       using handler = return_handler_t<Sig, basic_t>;
       return_handler_obj.reset(new handler(std::move(*h)));
     }
-    inline                           // Never called. Used to limit errmsg
-    static                           // with RETURN of wring type and after:
-    void                             //   FORBIDDEN_CALL
-    set_return(std::false_type, ...) //   RETURN
-      noexcept;                      //   THROW
 
     condition_list<Sig>                    conditions;
     side_effect_list<Sig>                  actions;
@@ -3012,47 +3006,24 @@ namespace trompeloeil
       : obj{obj_}
     {}
 
-    template <typename T>
-    static
-    auto
-    assert_return_type(
-      T&)
-    noexcept
-    {
-      using sigret = return_of_t<typename T::signature>;
-      using ret = typename T::return_type;
-      constexpr bool retmatch = std::is_same<ret, sigret>::value;
-      constexpr bool legal = T::throws || retmatch;
-      static_assert(legal, "RETURN missing for non-void function");
-      return std::bool_constant<legal>{};
-    }
-
-    template <typename M, typename Tag, typename Info>
-    auto
-    make_expectation(
-      std::true_type,
-      call_modifier<M, Tag, Info>&& m)
-    const
-    noexcept
-    {
-      auto lock = get_lock();
-      m.matcher->hook_last(obj.trompeloeil_matcher_list(Tag{}));
-      return std::move(m).matcher;
-    }
-
-    template <typename T>
-    static                                           // Never called. Used to
-    std::unique_ptr<expectation>                     // limit errmsg when RETURN
-    make_expectation(std::false_type, T&&) noexcept; // is missing in non-void
-                                                     // function
-
     template <typename M, typename Tag, typename Info>
     auto
     operator+(
       call_modifier<M, Tag, Info>&& t)
     const
     {
-      return make_expectation(assert_return_type(t), std::move(t));
+      using sigret = return_of_t<typename Info::signature>;
+      using ret = typename Info::return_type;
+      constexpr bool retmatch = std::is_same<ret, sigret>::value;
+      constexpr bool legal = Info::throws || retmatch;
+      static_assert(legal, "RETURN missing for non-void function");
+
+      if constexpr(legal)
+      {
+        auto lock = get_lock();
+        t.matcher->hook_last(obj.trompeloeil_matcher_list(Tag{}));
+      }
+      return std::move(t).matcher;
     }
     Mock& obj;
   };
@@ -3064,34 +3035,22 @@ namespace trompeloeil
   {
     return {obj};
   }
-  template <typename T,
-            typename = std::enable_if_t<std::is_lvalue_reference<T&&>::value>>
+  template <typename T>
   inline
-  T&&
+  decltype(auto)
   decay_return_type(
     T&& t)
   {
-    return std::forward<T>(t);
+    if constexpr (std::is_array<T>::value)
+    {
+      return static_cast<T*>(t);
+    }
+    else
+    {
+      return std::forward<T>(t);
+    }
   }
 
-  template <typename T,
-            typename = std::enable_if_t<std::is_rvalue_reference<T&&>::value>>
-  inline
-  T
-  decay_return_type(
-    T&& t)
-  {
-    return std::forward<T>(t);
-  }
-
-  template <typename T, size_t N>
-  inline
-  T*
-  decay_return_type(
-    T (&t)[N])
-  {
-    return t;
-  }
 
   template <bool sequence_set>
   struct lifetime_monitor_modifier
