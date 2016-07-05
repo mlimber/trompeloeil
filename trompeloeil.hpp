@@ -511,72 +511,17 @@ namespace trompeloeil
   constexpr
   bool
   is_null(
-    T const &t,
-    std::true_type)
-  noexcept(noexcept(std::declval<T>() == nullptr))
-  {
-    return t == nullptr;
-  }
-
-  template <typename T>
-  constexpr
-  bool
-  is_null(
-    T const &,
-    std::false_type)
-  noexcept
-  {
-    return false;
-  }
-
-  template <typename T>
-  constexpr
-  bool
-  is_null(
     T const &t)
   {
-    return ::trompeloeil::is_null(t,
-                                  ::trompeloeil::is_null_comparable<T>(nullptr));
+    if constexpr (::trompeloeil::is_null_comparable<T>(nullptr))
+    {
+      return t == nullptr;
+    }
+    else
+    {
+      return false;
+    }
   }
-
-  template <typename T, bool = is_output_streamable<T>()>
-  struct streamer
-  {
-    static
-    void
-    print(
-      std::ostream& os,
-      T const &t)
-    {
-      stream_sentry s(os);
-      os << t;
-    }
-  };
-
-
-  template <typename T>
-  struct streamer<T, false>
-  {
-    static
-    void
-    print(
-      std::ostream& os,
-      T const &t)
-    {
-      stream_sentry s(os);
-      static const char *linebreak = "\n";
-      os << sizeof(T) << "-byte object={";
-      os << (linebreak + (sizeof(T) <= 8)); // stupid construction silences VS2015 warining
-      os << std::setfill('0') << std::hex;
-      auto p = reinterpret_cast<uint8_t const*>(&t);
-      for (size_t i = 0; i < sizeof(T); ++i)
-      {
-        os << " 0x" << std::setw(2) << unsigned(p[i]);
-        if ((i & 0xf) == 0xf) os << '\n';
-      }
-      os << " }";
-    }
-  };
 
   template <typename T>
   void
@@ -590,26 +535,41 @@ namespace trompeloeil
     }
     else
     {
-      streamer<T>::print(os, t);
+      stream_sentry s(os);
+      if constexpr (is_output_streamable<T>())
+      {
+        os << t;
+      }
+      else
+      {
+        static const char *linebreak = "\n";
+        os << sizeof(T) << "-byte object={";
+        os << (linebreak + (sizeof(T) <= 8)); // stupid construction silences VS2015 warining
+        os << std::setfill('0') << std::hex;
+        auto p = reinterpret_cast<uint8_t const*>(&t);
+        for (size_t i = 0; i < sizeof(T); ++i)
+        {
+          os << " 0x" << std::setw(2) << unsigned(p[i]);
+          if ((i & 0xf) == 0xf) os << '\n';
+        }
+        os << " }";
+      }
     }
   }
 
-  inline
+  template <typename T>
   constexpr
   auto
-  param_compare_operator(
-    ...)
+  param_compare_operator()
   {
-    return " = ";
-  }
-
-  inline
-  constexpr
-  auto
-  param_compare_operator(
-    matcher const*)
-  {
-    return "";
+    if constexpr (::trompeloeil::is_matcher<T>{})
+    {
+      return "";
+    }
+    else
+    {
+      return " = ";
+    }
   }
 
   template <typename T>
@@ -618,7 +578,7 @@ namespace trompeloeil
     std::ostream& os,
     T const& t)
   {
-    os << param_compare_operator(&t);
+    os << param_compare_operator<T>();
     print(os, t);
     os << '\n';
   }
@@ -2268,7 +2228,7 @@ namespace trompeloeil
   {
     auto prefix = ::trompeloeil::param_name_prefix(&t) + "_";
     os << "  param " << std::setw((i < 9) + 1) << prefix << i + 1
-       << ::trompeloeil::param_compare_operator(&t);
+       << ::trompeloeil::param_compare_operator<T>();
     ::trompeloeil::print(os, t);
     os << '\n';
   }
