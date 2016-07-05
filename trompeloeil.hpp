@@ -2523,7 +2523,7 @@ namespace trompeloeil
       constexpr bool forbidden = upper_call_limit == 0U;
       static_assert(!forbidden,
                     "SIDE_EFFECT for forbidden call does not make sense");
-      using tag = std::integral_constant<bool, !forbidden>;
+      using tag = std::bool_constant<!forbidden>;
       matcher->add_side_effect(tag{}, &a);
       return {std::move(matcher)};
     }
@@ -2554,7 +2554,7 @@ namespace trompeloeil
                     "RETURN for forbidden call does not make sense");
 
       constexpr bool valid = matching_ret_type && is_first_return && !throws && upper_call_limit > 0ULL;
-      using tag = std::integral_constant<bool, valid>;
+      using tag = std::bool_constant<valid>;
       matcher->set_return(tag{}, &h);
       return {std::move(matcher)};
     }
@@ -2571,7 +2571,7 @@ namespace trompeloeil
                     "THROW and RETURN does not make sense");
 
       constexpr bool valid = !throws && !has_return;
-      using tag = std::integral_constant<bool, valid>;
+      using tag = std::bool_constant<valid>;
       auto handler = [=](auto& p) -> decltype(auto)
       {
         h(p);
@@ -3024,7 +3024,7 @@ namespace trompeloeil
       constexpr bool retmatch = std::is_same<ret, sigret>::value;
       constexpr bool legal = T::throws || retmatch;
       static_assert(legal, "RETURN missing for non-void function");
-      return std::integral_constant<bool, legal>{};
+      return std::bool_constant<legal>{};
     }
 
     template <typename M, typename Tag, typename Info>
@@ -3278,7 +3278,7 @@ operator*(
 
 #define TROMPELOEIL_MAKE_MOCK_(name, constness, num, sig, spec, ...)           \
   using TROMPELOEIL_ID(cardinality_match) =                                    \
-    std::integral_constant<bool, num == ::trompeloeil::param_list<sig>::size>; \
+    std::bool_constant<num == ::trompeloeil::param_list<sig>::size>; \
   static_assert(TROMPELOEIL_ID(cardinality_match)::value,                      \
                 "Function signature does not have " #num " parameters");       \
   using TROMPELOEIL_ID(matcher_list_t) = ::trompeloeil::call_matcher_list<sig>;\
