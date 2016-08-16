@@ -2562,15 +2562,6 @@ namespace trompeloeil
   };
 
 
-  template<int N, typename T>
-  constexpr
-  inline
-  decltype(auto)
-  arg(T* t, std::true_type)
-  {
-    return std::get<N-1>(*t);
-  }
-
   template <int N>
   struct illegal_argument {
     illegal_argument(illegal_argument&&) = delete;
@@ -2586,22 +2577,24 @@ namespace trompeloeil
   };
 
   template <int N>
-  inline
-  illegal_argument<N>&
-  arg(void const*, std::false_type)
-    noexcept
-  {
-      static illegal_argument<N> v{};
-      return v;
-  }
+  inline static constexpr illegal_argument<N> illegal_argument_v{};
 
   template <int N, typename T>
+  constexpr
   decltype(auto)
   mkarg(
     T& t)
   noexcept
   {
-    return arg<N>(&t, std::integral_constant<bool, (N <= std::tuple_size<T>::value)>{});
+    if constexpr (N <= std::tuple_size<T>::value)
+    {
+      return std::get<N-1>(t);
+    }
+    else
+    {
+      auto& rv = illegal_argument_v<N>;
+      return rv;
+    }
   }
 
   template <typename Mock>
