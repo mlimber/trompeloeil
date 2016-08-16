@@ -2601,25 +2601,6 @@ namespace trompeloeil
   struct call_validator_t
   {
     template <typename M, typename Tag, typename Info>
-    auto
-    make_expectation(
-      std::true_type,
-      call_modifier<M, Tag, Info>&& m)
-    const
-    noexcept
-    {
-      auto lock = get_lock();
-      m.matcher->hook_last(obj.trompeloeil_matcher_list(Tag{}));
-      return std::move(m).matcher;
-    }
-
-    template <typename T>
-    static                                           // Never called. Used to
-    std::unique_ptr<expectation>                     // limit errmsg when RETURN
-    make_expectation(std::false_type, T&&) noexcept; // is missing in non-void
-                                                     // function
-
-    template <typename M, typename Tag, typename Info>
     inline
     auto
     operator+(
