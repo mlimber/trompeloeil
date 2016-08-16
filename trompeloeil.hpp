@@ -610,25 +610,6 @@ namespace trompeloeil
   public:
     list_elem(list_elem const&) = delete;
     list_elem& operator=(list_elem const&) = delete;
-    list_elem(
-      list_elem &&r)
-    noexcept
-      : next(r.next)
-      , prev(&r)
-    {
-      r.invariant_check();
-
-      next->prev = this;
-      r.next = this;
-
-      TROMPELOEIL_ASSERT(next->prev == this);
-      TROMPELOEIL_ASSERT(prev->next == this);
-
-      r.unlink();
-
-      TROMPELOEIL_ASSERT(!r.is_linked());
-      invariant_check();
-    }
     virtual
     ~list_elem()
     {
@@ -1028,14 +1009,6 @@ namespace trompeloeil
 
   struct wildcard : public matcher
   {
-    // This abomination of constructor seems necessary for g++ 4.9 and 5.1
-    template <typename ... T>
-    constexpr
-    wildcard(
-      T&& ...)
-    noexcept
-    {}
-
     template<typename T,
              typename = std::enable_if_t<!std::is_lvalue_reference<T>::value>>
     operator T&&()
@@ -1181,32 +1154,6 @@ namespace trompeloeil
     std::tuple<T...> value;
   };
 
-  namespace lambdas {
-    inline auto equal()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x == y) { return x == y; };
-    }
-    inline auto not_equal()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x != y) { return x != y; };
-    }
-    inline auto less()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x < y) { return x < y; };
-    }
-    inline auto less_equal()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x <= y) { return x <= y; };
-    }
-    inline auto greater()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x > y) { return x > y; };
-    }
-    inline auto greater_equal()
-    {
-      return [](auto const& x, auto const& y) -> decltype(x >= y) { return x >= y; };
-    }
-  }
   template <typename MatchType, typename Predicate, typename Printer, typename ... T>
   inline
   predicate_matcher <Predicate, Printer, matcher_kind_t<MatchType, Predicate, std::decay_t<T>...>, std::decay_t<T>...>
@@ -1230,7 +1177,7 @@ namespace trompeloeil
   eq(
     V&& v)
   {
-    return make_matcher<T>(lambdas::equal(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x == y) { return x == y; },
                            [](std::ostream& os, auto const& value) {
                              os << " == ";
                              ::trompeloeil::print(os, value);
@@ -1243,7 +1190,7 @@ namespace trompeloeil
   ne(
     V&& v)
   {
-    return make_matcher<T>(lambdas::not_equal(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x != y) { return x != y; },
                            [](std::ostream& os, auto const& value) {
                              os << " != ";
                              ::trompeloeil::print(os, value);
@@ -1258,7 +1205,7 @@ namespace trompeloeil
   ge(
     V&& v)
   {
-    return make_matcher<T>(lambdas::greater_equal(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x >= y) { return x >= y; },
                            [](std::ostream& os, auto const& value) {
                              os << " >= ";
                              ::trompeloeil::print(os, value);
@@ -1272,7 +1219,7 @@ namespace trompeloeil
   gt(
     V&& v)
   {
-    return make_matcher<T>(lambdas::greater(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x > y) { return x > y; },
                            [](std::ostream& os, auto const& value) {
                              os << " > ";
                              ::trompeloeil::print(os, value);
@@ -1286,7 +1233,7 @@ namespace trompeloeil
   lt(
     V&& v)
   {
-    return make_matcher<T>(lambdas::less(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x < y) { return x < y; },
                            [](std::ostream& os, auto const& value) {
                              os << " < ";
                              ::trompeloeil::print(os, value);
@@ -1300,7 +1247,7 @@ namespace trompeloeil
   le(
     V&& v)
   {
-    return make_matcher<T>(lambdas::less_equal(),
+    return make_matcher<T>([](auto const& x, auto const& y) -> decltype(x <= y) { return x <= y; },
                            [](std::ostream& os, auto const& value) {
                              os << " <= ";
                              ::trompeloeil::print(os, value);
