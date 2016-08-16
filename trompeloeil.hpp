@@ -1727,34 +1727,18 @@ namespace trompeloeil
 
   template <typename T, typename U>
   bool
-  param_matches_impl(
-    T const& t,
-    U const& u,
-    matcher const*)
-  noexcept(noexcept(t.matches(u)))
-  {
-    return t.matches(u);
-  }
-
-  template <typename T, typename U>
-  bool
-  param_matches_impl(
-    T const& t,
-    U const& u,
-    ...)
-  noexcept(noexcept(t == u))
-  {
-    return t == u;
-  }
-
-  template <typename T, typename U>
-  bool
   param_matches(
     T const& t,
     U const& u)
-  noexcept(noexcept(param_matches_impl(t, u, &t)))
   {
-    return ::trompeloeil::param_matches_impl(t, u, &t);
+    if constexpr (::trompeloeil::is_matcher<T>{})
+    {
+      return t.matches(u);
+    }
+    else
+    {
+      return t == u;
+    }
   }
 
   template <size_t ... I, typename T, typename U>
