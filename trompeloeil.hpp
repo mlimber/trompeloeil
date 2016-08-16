@@ -459,13 +459,29 @@ namespace trompeloeil
   {
   public:
     template <typename V,
+              typename = std::enable_if_t<!std::is_lvalue_reference<V>::value>,
               typename = decltype(std::declval<Pred>()(std::declval<V&&>(), std::declval<T>()...))>
     operator V&&() const;
 
     template <typename V,
+              typename = std::enable_if_t<std::is_copy_constructible<V>::value
+                                          || !std::is_move_constructible<V>::value>,
               typename = decltype(std::declval<Pred>()(std::declval<V&>(), std::declval<T>()...))>
     operator V&() const;
   };
+
+  struct wildcard : public duck_typed_matcher<wildcard>
+  {
+    template <typename T>
+    bool operator()(T&&) const noexcept { return true; }
+    template <typename T>
+    bool matches(T&&) const noexcept { return true; }
+    friend std::ostream& operator<<(std::ostream& os, wildcard const&)
+    {
+      return os << " matching _";
+    }
+  };
+  static constexpr wildcard const _{};
 
   constexpr inline std::false_type is_output_streamable_(...) { return {}; }
 
@@ -1006,45 +1022,6 @@ namespace trompeloeil
   {
     matchers.push_back(m);
   }
-
-  struct wildcard : public matcher
-  {
-    template<typename T,
-             typename = std::enable_if_t<!std::is_lvalue_reference<T>::value>>
-    operator T&&()
-    const;
-
-    template<typename T,
-             typename = std::enable_if_t<std::is_copy_constructible<T>::value
-                                         || !std::is_move_constructible<T>::value>>
-    operator T&()
-    const;
-
-    template <typename T>
-    constexpr
-    bool
-    matches(
-      T const&)
-    const
-    noexcept
-    {
-      return true;
-    }
-
-    friend
-    std::ostream&
-    operator<<(
-      std::ostream& os,
-      wildcard const&)
-    noexcept
-    {
-      return os << " matching _";
-    }
-  };
-
-
-  static constexpr wildcard const _{};
-
   template <typename T>
   void can_match_parameter(T&);
 
